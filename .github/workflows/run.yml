@@ -1,0 +1,22 @@
+name: run-code
+on: [push]
+jobs:
+  run-code:
+    runs-on: windows-2019
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v3
+      - name: Setup | Rust
+        uses: ATiltedTree/setup-rust@v1.0.5
+        with:
+          rust-version: stable
+      - name: Setup | Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+      - name: Build main.rs
+        run: cargo build --release
+      - name: Generate Testcases
+        run: cd tools && .\gen.exe seeds.txt
+      - name: run
+        run: python run.py
