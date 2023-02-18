@@ -8,8 +8,6 @@ use std::process::exit;
 
 use grid::ADJACENTS;
 
-use noise::Perlin;
-
 fn main() {
     let stdin = stdin();
     let mut source = LineSource::new(BufReader::new(stdin.lock()));
@@ -62,7 +60,7 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                 continue;
             }
             loop {
-                let power = 100;
+                let power = 128 + 3 * input.c;
                 let res = excavate(stdin, cp, power);
                 dam[cp.0][cp.1] += power;
                 cost_sum += power + input.c;
