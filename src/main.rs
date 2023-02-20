@@ -12,97 +12,12 @@ fn main() {
     let stdin = stdin();
     let mut source = LineSource::new(BufReader::new(stdin.lock()));
     let input = Input::from_input(&mut source);
-    solve2(&mut source, input);
+    solve(&mut source, input);
 }
 
 fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     let mut dam = mat![0;input.n;input.n];
     let mut com = mat![false;input.n;input.n];
-    let mut s_pred = mat![1000;input.n;input.n];
-    let mut cost_sum = 0;
-    for i in 0..input.h {
-        let mut dist = mat![1 << 30;input.n;input.n];
-        let mut from = mat![Coordinate(!0,!0);input.n;input.n];
-        let mut que = BinaryHeap::new();
-        dist[input.hs[i].0][input.hs[i].1] = 0;
-        que.push((Reverse(0), input.hs[i]));
-        while let Some((Reverse(d), p)) = que.pop() {
-            if dist[p.0][p.1] < d {
-                continue;
-            }
-            for &dxy in &ADJACENTS {
-                let np = p + dxy;
-                if np.in_map(input.n) {
-                    // let cost = !com[np.0][np.1] as i32;
-                    let cost = if com[np.0][np.1] {0}else {s_pred[np.0][np.1]};
-                    if chmin!(dist[np.0][np.1], d + cost) {
-                        que.push((Reverse(dist[np.0][np.1]), np));
-                        from[np.0][np.1] = p;
-                    }
-                }
-            }
-        }
-        let min_idx = input
-            .ws
-            .iter()
-            .enumerate()
-            .map(|(i, &x)| (dist[x.0][x.1], i))
-            .min()
-            .unwrap()
-            .1;
-        let mut cp = input.ws[min_idx];
-        loop {
-            if com[cp.0][cp.1] {
-                if cp == input.hs[i] {
-                    break;
-                }
-                cp = from[cp.0][cp.1];
-                continue;
-            }
-            loop {
-                let power = 128 + 3 * input.c;
-                let res = excavate(stdin, cp, power);
-                dam[cp.0][cp.1] += power;
-                cost_sum += power + input.c;
-                if res == 1 {
-                    com[cp.0][cp.1] = true;
-                    break;
-                }
-                else if res == 2 {
-                    eprintln!("Cost: {}", cost_sum);
-                    exit(0);
-                } 
-            }
-            com[cp.0][cp.1] = true;
-            s_pred[cp.0][cp.1] = dam[cp.0][cp.1];
-            for i in -20..=20 {
-                for j in -20..=20 {
-                    let nx = cp.0 as i32 + i;
-                    let ny = cp.1 as i32 + j;
-                    if nx < 0 || ny < 0 || nx >= input.n as i32 || ny >= input.n as i32 {
-                        continue;
-                    }
-                    let np = Coordinate(nx as usize,ny as usize);
-                    if com[np.0][np.1] {
-                        continue;
-                    }
-                    let dist_cn = i.abs() + j.abs();
-                    s_pred[np.0][np.1] = (s_pred[np.0][np.1] * dist_cn + s_pred[cp.0][cp.1]) / (dist_cn + 1);
-                }
-            }
-            if cp == input.hs[i] {
-                break;
-            }
-            cp = from[cp.0][cp.1];
-        }
-    }
-    eprintln!("Finished");
-}
-
-fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
-    let mut dam = mat![0;input.n;input.n];
-    let mut com = mat![false;input.n;input.n];
-    // let mut s_pred = mat![!0;input.n;input.n];
     let mut cost_sum = 0;
     let mut to_w = mat![1 << 30;input.n;input.n];
     let mut que = VecDeque::new();
@@ -167,6 +82,7 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         let mut cnt = 0;        
         vis[cur.0][cur.1] = true;
         // 水場に付くまで移動を繰り返す
+        // 移動は出来る限り水場に近づいていくように2,3方向への移動に限定する
         // 許容の差が大きくなっていく
         // 一定時間移動、移動できなくなったら水場に一番近い場所を選び直して再スタート
         'outer: loop {
@@ -175,7 +91,7 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             cnt += 1;
             for &cd in &ADJACENTS {
                 let np = cur + cd;
-                if np.in_map(input.n) && vis[np.0][np.1] {
+                if np.in_map(input.n) && (vis[np.0][np.1] || to_w[cur.0][cur.1] < to_w[np.0][np.1]) {
                     continue;
                 }
                 ord.push((to_w[np.0][np.1],np));
