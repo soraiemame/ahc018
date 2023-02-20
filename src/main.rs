@@ -120,7 +120,7 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                         break 'outer;
                     }
                     let d = dam[np.0][np.1];
-                    let attempt = if cur_dam < 100 {(cur_dam - 10).max(20) - d} else{cur_dam - 100 - d};
+                    let attempt = (if cur_dam < 100 {(cur_dam - 10).max(20) - d} else{cur_dam - 100 - d}).min(5000);
                     let res = excavate_proc!(np,attempt);
                     if res == 1 {
                         break 'outer;
@@ -141,7 +141,7 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                 if allow + cur_dam <= d {
                     continue;
                 }
-                let attempt = if cur_dam < 100 {(cur_dam - 10).max(20) - d} else{cur_dam - 100 - d};
+                let attempt = (if cur_dam < 100 {(cur_dam - 10).max(20) - d} else{cur_dam - 100 - d}).min(5000);
                 // とりあえず少し掘ってみる
                 if attempt > 20 {
                     let res = excavate_proc!(np,attempt);
@@ -154,7 +154,7 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                     }
                 }
                 let d = dam[np.0][np.1];
-                let attempt = (allow + cur_dam - d).max(20);
+                let attempt = (allow + cur_dam - d).max(20).min(5000);
                 let res = excavate_proc!(np,attempt);
                 if res == 1 {
                     moved.push(np);
@@ -197,53 +197,6 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         }
         done[idx] = true;
     }
-    // 水場に近いところから順に良さそうな方向に伸びる
-    // 基本的に水場を目指して伸びるが、標高の差が大きすぎる場合は別の方に伸びる
-    // dijkstraではない
-    // 'outer: while let Some((Reverse(_d),p)) = que.pop() {
-    //     let mut cc = 0;
-    //     for &cd in &ADJACENTS {
-    //         let np = p + cd;
-    //         if np.in_map(input.n) && com[np.0][np.1] {cc += 1;}
-    //     }
-    //     if cc >= 2 {continue;}
-    //     let mut ord = vec![];
-    //     for &cd in &ADJACENTS {
-    //         let np = p + cd;
-    //         if !np.in_map(input.n) || com[np.0][np.1] {
-    //             continue;
-    //         }
-    //         ord.push((to_w[np.0][np.1],np));
-    //     }
-    //     ord.sort();
-    //     // 今の場所の頑丈さ
-    //     let cur_dam = dam[p.0][p.1];
-    //     // excavate first try
-    //     for &(w_dist,np) in &ord {
-    //         if dam[np.0][np.1] != 0 {
-    //             continue;
-    //         }
-    //         let attempt = if cur_dam < 100 {(cur_dam - 10).max(20)} else{cur_dam - 100};
-    //         let res = excavate_proc!(np, attempt);
-    //         if res == 1 {
-    //             que.push((Reverse(w_dist),np));
-    //             continue 'outer;
-    //         }
-    //     }
-    //     // excavate
-    //     let power = if cur_dam < 100 {20 + log2c} else{100 + log2c * 10};
-    //     loop {
-    //         for &(w_dist,np) in &ord {
-    //             let res = excavate_proc!(np, power);
-    //             if res == 1 {
-    //                 com[np.0][np.1] = true;
-    //                 que.push((Reverse(w_dist),np));
-    //                 continue 'outer;
-    //             }
-    //         }
-    //     }
-    // }
-    // eprintln!("Finished");
 }
 
 fn excavate(stdin: &mut LineSource<BufReader<StdinLock>>, point: Coordinate, power: i32) -> i32 {
