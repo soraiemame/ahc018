@@ -91,10 +91,12 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             cnt += 1;
             for &cd in &ADJACENTS {
                 let np = cur + cd;
-                if np.in_map(input.n) && (vis[np.0][np.1] || to_w[cur.0][cur.1] < to_w[np.0][np.1]) {
-                    continue;
+                if np.in_map(input.n) {
+                    if vis[np.0][np.1] || to_w[cur.0][cur.1] < to_w[np.0][np.1] {
+                        continue;
+                    }
+                    ord.push((to_w[np.0][np.1],np));
                 }
-                ord.push((to_w[np.0][np.1],np));
             }
             if ord.is_empty() {
                 // cnt += 1;
