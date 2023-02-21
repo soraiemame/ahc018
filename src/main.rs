@@ -325,9 +325,12 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             if dist[p.0][p.1] < d {continue;}
             for &cd in &ADJACENTS8 {
                 let np = p + cd;
-                if np.in_map(input.n) && chmin!(dist[np.0][np.1],d + s_pred[np.0][np.1]) {
-                    que.push((Reverse(dist[np.0][np.1]),np));
-                    from[np.0][np.1] = p;
+                if np.in_map(input.n) {
+                    let nx = d + s_pred[np.0][np.1] + if cd.0 == 0 || cd.1 == 0 {input.c} else {2 * input.c};
+                    if chmin!(dist[np.0][np.1],nx) {
+                        que.push((Reverse(dist[np.0][np.1]),np));
+                        from[np.0][np.1] = p;
+                    }
                 }
             }
         }
@@ -344,8 +347,6 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                 }
             }
         }
-        // eprintln!("house: {:?}, tar: {:?}",input.hs[i],tar);
-        // eprintln!("{} {:?}",to_w[tar.0][tar.1],com[tar.0][tar.1]);
         let mut cur = tar;
         // たどり着くまで
         loop {
