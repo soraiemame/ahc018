@@ -1,12 +1,12 @@
 use grid::Coordinate;
 use proconio::{input, source::line::LineSource};
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap,VecDeque};
+use std::collections::{BinaryHeap, VecDeque};
 use std::io::{stdin, BufReader, StdinLock};
 
 use std::process::exit;
 
-use grid::{ADJACENTS,ADJACENTS8};
+use grid::{ADJACENTS, ADJACENTS8};
 
 fn main() {
     let stdin = stdin();
@@ -23,14 +23,13 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     let mut que = VecDeque::new();
     macro_rules! excavate_proc {
         ($point: expr,$power: expr) => {{
-            let res = excavate(stdin,$point,$power);
+            let res = excavate(stdin, $point, $power);
             cost_sum += $power;
             dam[$point.0][$point.1] += $power;
             if res == 1 {
                 com[$point.0][$point.1] = true;
-            }
-            else if res == 2 {
-                eprintln!("Cost sum: {}",cost_sum);
+            } else if res == 2 {
+                eprintln!("Cost sum: {}", cost_sum);
                 exit(0);
             }
             res
@@ -43,43 +42,51 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     while let Some(p) = que.pop_front() {
         for &cd in &ADJACENTS {
             let np = p + cd;
-            if np.in_map(input.n) && chmin!(to_w[np.0][np.1],to_w[p.0][p.1] + 1) {
+            if np.in_map(input.n) && chmin!(to_w[np.0][np.1], to_w[p.0][p.1] + 1) {
                 que.push_back(np);
             }
         }
     }
 
     let log2c = match input.c {
-        1=>0,2=>1,4=>2,8=>3,16=>4,32=>5,64=>6,128=>7,_=>unreachable!()
+        1 => 0,
+        2 => 1,
+        4 => 2,
+        8 => 3,
+        16 => 4,
+        32 => 5,
+        64 => 6,
+        128 => 7,
+        _ => unreachable!(),
     };
     let mut que = BinaryHeap::new();
     // 家の岩盤を掘る
     for i in 0..input.h {
         let power = 20 + log2c;
         loop {
-            let res = excavate_proc!(input.hs[i],power);
+            let res = excavate_proc!(input.hs[i], power);
             if res == 1 {
-                que.push((Reverse(to_w[input.hs[i].0][input.hs[i].1]),input.hs[i]));
+                que.push((Reverse(to_w[input.hs[i].0][input.hs[i].1]), input.hs[i]));
                 break;
             }
         }
     }
-    let mut done = vec![false;input.h];
+    let mut done = vec![false; input.h];
     // 水場に近い家から水場に向かって伸ばす
     for _ in 0..input.h {
-        let (idx,mut cur) = {
+        let (idx, mut cur) = {
             let mut mn = 1 << 30;
             let mut idx = !0;
             for i in 0..input.h {
-                if !done[i] && chmin!(mn,to_w[input.hs[i].0][input.hs[i].1]) {
+                if !done[i] && chmin!(mn, to_w[input.hs[i].0][input.hs[i].1]) {
                     idx = i;
                 }
             }
-            (idx,input.hs[idx])
+            (idx, input.hs[idx])
         };
         let mut vis = mat![false;input.n;input.n];
         let mut moved = BinaryHeap::new();
-        let mut cnt = 0;        
+        let mut cnt = 0;
         vis[cur.0][cur.1] = true;
         // 水場に付くまで移動を繰り返す
         // 移動は出来る限り水場に近づいていくように2,3方向への移動に限定する
@@ -95,7 +102,7 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                     if vis[np.0][np.1] || to_w[cur.0][cur.1] < to_w[np.0][np.1] {
                         continue;
                     }
-                    ord.push((to_w[np.0][np.1],np));
+                    ord.push((to_w[np.0][np.1], np));
                 }
             }
             if ord.is_empty() {
@@ -113,38 +120,54 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             if ord[0].0 == 0 {
                 ord = vec![ord[0]];
             }
-            for &(w_dist,np) in &ord {
+            for &(w_dist, np) in &ord {
                 // 水源だったらそこに移動しよう
                 if w_dist == 0 {
                     if com[np.0][np.1] {
                         break 'outer;
                     }
                     let d = dam[np.0][np.1];
-                    let attempt = (if cur_dam < 100 {(cur_dam - 10).max(20) - d} else{cur_dam - 100 - d}).min(5000);
-                    let res = excavate_proc!(np,attempt);
+                    let attempt = (if cur_dam < 100 {
+                        (cur_dam - 10).max(20) - d
+                    } else {
+                        cur_dam - 100 - d
+                    })
+                    .min(5000);
+                    let res = excavate_proc!(np, attempt);
                     if res == 1 {
                         break 'outer;
                     }
                     // いけるまでやる
-                    let attempt = if cur_dam < 100 {20}else{100};
+                    let attempt = if cur_dam < 100 { 20 } else { 100 };
                     loop {
-                        let res = excavate_proc!(np,attempt);
+                        let res = excavate_proc!(np, attempt);
                         if res == 1 {
                             break 'outer;
                         }
                     }
                 }
                 // 差の許容量
-                let allow = (50 + cnt - if w_dist - 1 == to_w[cur.0][cur.1] {0}else{50}).max(0);
+                let allow = (50 + cnt
+                    - if w_dist - 1 == to_w[cur.0][cur.1] {
+                        0
+                    } else {
+                        50
+                    })
+                .max(0);
                 let d = dam[np.0][np.1];
                 // すでにたくさん削っていたら見送る
                 if allow + cur_dam <= d {
                     continue;
                 }
-                let attempt = (if cur_dam < 100 {(cur_dam - 10).max(20) - d} else{cur_dam - 100 - d}).min(5000);
+                let attempt = (if cur_dam < 100 {
+                    (cur_dam - 10).max(20) - d
+                } else {
+                    cur_dam - 100 - d
+                })
+                .min(5000);
                 // とりあえず少し掘ってみる
                 if attempt > 20 {
-                    let res = excavate_proc!(np,attempt);
+                    let res = excavate_proc!(np, attempt);
                     if res == 1 {
                         moved.push(np);
                         // cnt += 1;
@@ -155,7 +178,7 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                 }
                 let d = dam[np.0][np.1];
                 let attempt = (allow + cur_dam - d).max(20).min(5000);
-                let res = excavate_proc!(np,attempt);
+                let res = excavate_proc!(np, attempt);
                 if res == 1 {
                     moved.push(np);
                     // cnt += 1;
@@ -175,7 +198,8 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         while let Some(p) = que.pop_front() {
             for &cd in &ADJACENTS {
                 let np = p + cd;
-                if np.in_map(input.n) && com[np.0][np.1] && chmin!(to_w[np.0][np.1],to_w[p.0][p.1]) {
+                if np.in_map(input.n) && com[np.0][np.1] && chmin!(to_w[np.0][np.1], to_w[p.0][p.1])
+                {
                     que.push_back(np);
                 }
             }
@@ -190,7 +214,7 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         while let Some(p) = que.pop_front() {
             for &cd in &ADJACENTS {
                 let np = p + cd;
-                if np.in_map(input.n) && chmin!(to_w[np.0][np.1],to_w[p.0][p.1] + 1) {
+                if np.in_map(input.n) && chmin!(to_w[np.0][np.1], to_w[p.0][p.1] + 1) {
                     que.push_back(np);
                 }
             }
@@ -204,21 +228,20 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     // SEPコのブロックで分割
     const SEP: usize = 25;
     const SEPN: usize = 9;
-    let get_idx = |x: usize| if x == input.n - 1 {SEPN - 1} else {x / SEP};
-    let from_idx = |x: usize| if x == SEPN - 1 {input.n - 1} else {x * SEP};
+    let get_idx = |x: usize| if x == input.n - 1 { SEPN - 1 } else { x / SEP };
+    let from_idx = |x: usize| if x == SEPN - 1 { input.n - 1 } else { x * SEP };
     let mut dam: Vec<Vec<i32>> = mat![0;input.n;input.n];
     let mut com = mat![false;input.n;input.n];
     let mut cost_sum = 0;
     macro_rules! excavate_proc {
         ($point: expr,$power: expr) => {{
-            let res = excavate(stdin,$point,$power);
+            let res = excavate(stdin, $point, $power);
             cost_sum += $power;
             dam[$point.0][$point.1] += $power;
             if res == 1 {
                 com[$point.0][$point.1] = true;
-            }
-            else if res == 2 {
-                eprintln!("Cost sum: {}",cost_sum);
+            } else if res == 2 {
+                eprintln!("Cost sum: {}", cost_sum);
                 exit(0);
             }
             res
@@ -241,7 +264,7 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                     }
                 }
                 if com[i][j] {
-                    let p = Coordinate(get_idx(i),get_idx(j));
+                    let p = Coordinate(get_idx(i), get_idx(j));
                     for &cd in &ADJACENTS8 {
                         let np = p + cd;
                         if np.in_map(SEPN) && com[from_idx(np.0)][from_idx(np.1)] {
@@ -258,11 +281,11 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             'check: for j in 0..input.w {
                 let wx = input.ws[j].0 / SEP;
                 let wy = input.ws[j].1 / SEP;
-                for hp in [(hx,hy),(hx + 1,hy),(hx,hy + 1),(hx + 1,hy + 1)] {
+                for hp in &[(hx, hy), (hx + 1, hy), (hx, hy + 1), (hx + 1, hy + 1)] {
                     if !com[from_idx(hp.0)][from_idx(hp.1)] {
                         continue;
                     }
-                    for wp in [(wx,wy),(wx + 1,wy),(wx,wy + 1),(wx + 1,wy + 1)] {
+                    for wp in &[(wx, wy), (wx + 1, wy), (wx, wy + 1), (wx + 1, wy + 1)] {
                         if !com[from_idx(wp.0)][from_idx(wp.1)] {
                             continue;
                         }
@@ -277,20 +300,22 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                 continue 'outer;
             }
         }
-        eprintln!("s: {}",s);
+        eprintln!("s: {}", s);
         break;
     }
-    
+
     let mut to_w = mat![1 << 30;input.n;input.n];
     let mut que = VecDeque::new();
     for i in 0..input.w {
         to_w[input.ws[i].0][input.ws[i].1] = 0;
-        if com[input.ws[i].0][input.ws[i].1] {que.push_back(input.ws[i]);}
+        if com[input.ws[i].0][input.ws[i].1] {
+            que.push_back(input.ws[i]);
+        }
     }
     while let Some(p) = que.pop_front() {
         for &cd in &ADJACENTS {
             let np = p + cd;
-            if np.in_map(input.n) && chmin!(to_w[np.0][np.1],to_w[p.0][p.1] + 1) {
+            if np.in_map(input.n) && chmin!(to_w[np.0][np.1], to_w[p.0][p.1] + 1) {
                 que.push_back(np);
             }
         }
@@ -306,10 +331,14 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                 let hyi = from_idx(hy);
                 let hx1i = from_idx(hx + 1);
                 let hy1i = from_idx(hy + 1);
-                let hxhy = if com[hxi][hyi] {dam[hxi][hyi]} else {5000};
-                let hxhy1 = if com[hxi][hy1i] {dam[hxi][hy1i]} else {5000};
-                let hx1hy = if com[hx1i][hyi] {dam[hx1i][hyi]} else {5000};
-                let hx1hy1 = if com[hx1i][hy1i] {dam[hx1i][hy1i]} else {5000};
+                let hxhy = if com[hxi][hyi] { dam[hxi][hyi] } else { 5000 };
+                let hxhy1 = if com[hxi][hy1i] { dam[hxi][hy1i] } else { 5000 };
+                let hx1hy = if com[hx1i][hyi] { dam[hx1i][hyi] } else { 5000 };
+                let hx1hy1 = if com[hx1i][hy1i] {
+                    dam[hx1i][hy1i]
+                } else {
+                    5000
+                };
                 let d0 = (hxhy * (hy1i - j) as i32 + hxhy1 * (j - hyi) as i32) / SEP as i32;
                 let d1 = (hx1hy * (hy1i - j) as i32 + hx1hy1 * (j - hyi) as i32) / SEP as i32;
                 let d2 = (d0 * (hx1i - i) as i32 + d1 * (i - hxi) as i32) / SEP as i32;
@@ -320,30 +349,38 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         let mut from = mat![Coordinate(!0,!0);input.n;input.n];
         let mut que = BinaryHeap::new();
         dist[input.hs[i].0][input.hs[i].1] = 0;
-        que.push((Reverse(0),input.hs[i]));
-        while let Some((Reverse(d),p)) = que.pop() {
-            if dist[p.0][p.1] < d {continue;}
+        que.push((Reverse(0), input.hs[i]));
+        while let Some((Reverse(d), p)) = que.pop() {
+            if dist[p.0][p.1] < d {
+                continue;
+            }
             for &cd in &ADJACENTS8 {
                 let np = p + cd;
                 if np.in_map(input.n) {
-                    let nx = d + s_pred[np.0][np.1] + if cd.0 == 0 || cd.1 == 0 {input.c} else {2 * input.c};
-                    if chmin!(dist[np.0][np.1],nx) {
-                        que.push((Reverse(dist[np.0][np.1]),np));
+                    let nx = d
+                        + s_pred[np.0][np.1]
+                        + if cd.0 == 0 || cd.1 == 0 {
+                            input.c
+                        } else {
+                            2 * input.c
+                        };
+                    if chmin!(dist[np.0][np.1], nx) {
+                        que.push((Reverse(dist[np.0][np.1]), np));
                         from[np.0][np.1] = p;
                     }
                 }
             }
         }
-        let mut tar = Coordinate(!0,!0);
+        let mut tar = Coordinate(!0, !0);
         // 予測距離 グリッドでの距離
-        let mut now = (1 << 30,1 << 30);
+        let mut now = (1 << 30, 1 << 30);
         for i in 0..input.n {
             for j in 0..input.n {
                 if to_w[i][j] != 0 {
                     continue;
                 }
-                if chmin!(now,(dist[i][j],to_w[i][j])) {
-                    tar = Coordinate(i,j);
+                if chmin!(now, (dist[i][j], to_w[i][j])) {
+                    tar = Coordinate(i, j);
                 }
             }
         }
@@ -356,8 +393,8 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                     break;
                 }
                 let rem = (s_pred[cur.0][cur.1] - dam[cur.0][cur.1]).max(0);
-                let attempt = if rem < 100 {50} else {100};
-                let res = excavate_proc!(cur,attempt);
+                let attempt = if rem < 100 { 50 } else { 100 };
+                let res = excavate_proc!(cur, attempt);
                 if res == 1 {
                     break;
                 }
@@ -368,18 +405,18 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             let nx = from[cur.0][cur.1];
             // 斜め移動なので先に壊す
             if cur.0 != nx.0 && cur.1 != nx.1 {
-                let bp0 = Coordinate(cur.0,nx.1);
-                let bp1 = Coordinate(nx.0,cur.1);
+                let bp0 = Coordinate(cur.0, nx.1);
+                let bp1 = Coordinate(nx.0, cur.1);
                 let rem0 = s_pred[bp0.0][bp0.1] - dam[bp0.0][bp0.1];
                 let rem1 = s_pred[bp1.0][bp1.1] - dam[bp1.0][bp1.1];
-                let bp = if rem0 < rem1 {bp0} else {bp1};
+                let bp = if rem0 < rem1 { bp0 } else { bp1 };
                 loop {
                     if com[bp.0][bp.1] {
                         break;
                     }
                     let rem = (s_pred[bp.0][bp.1] - dam[bp.0][bp.1]).max(0);
-                    let attempt = if rem < 100 {20} else {100};
-                    let res = excavate_proc!(bp,attempt);
+                    let attempt = if rem < 100 { 20 } else { 100 };
+                    let res = excavate_proc!(bp, attempt);
                     if res == 1 {
                         break;
                     }
@@ -392,12 +429,15 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         let mut que = VecDeque::new();
         for i in 0..input.w {
             to_w[input.ws[i].0][input.ws[i].1] = 0;
-            if com[input.ws[i].0][input.ws[i].1] {que.push_back(input.ws[i]);}
+            if com[input.ws[i].0][input.ws[i].1] {
+                que.push_back(input.ws[i]);
+            }
         }
         while let Some(p) = que.pop_front() {
             for &cd in &ADJACENTS {
                 let np = p + cd;
-                if np.in_map(input.n) && com[np.0][np.1] && chmin!(to_w[np.0][np.1],to_w[p.0][p.1]) {
+                if np.in_map(input.n) && com[np.0][np.1] && chmin!(to_w[np.0][np.1], to_w[p.0][p.1])
+                {
                     que.push_back(np);
                 }
             }
@@ -412,7 +452,7 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         while let Some(p) = que.pop_front() {
             for &cd in &ADJACENTS {
                 let np = p + cd;
-                if np.in_map(input.n) && chmin!(to_w[np.0][np.1],to_w[p.0][p.1] + 1) {
+                if np.in_map(input.n) && chmin!(to_w[np.0][np.1], to_w[p.0][p.1] + 1) {
                     que.push_back(np);
                 }
             }
