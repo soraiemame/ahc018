@@ -234,7 +234,8 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                     continue;
                 }
                 while dam[i][j] < s {
-                    let res = excavate_proc!(Coordinate(i, j), 20);
+                    let attempt = 100;
+                    let res = excavate_proc!(Coordinate(i, j), attempt);
                     if res == 1 {
                         break;
                     }
@@ -284,7 +285,7 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     let mut que = VecDeque::new();
     for i in 0..input.w {
         to_w[input.ws[i].0][input.ws[i].1] = 0;
-        que.push_back(input.ws[i]);
+        if com[input.ws[i].0][input.ws[i].1] {que.push_back(input.ws[i]);}
     }
     while let Some(p) = que.pop_front() {
         for &cd in &ADJACENTS {
@@ -343,6 +344,8 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                 }
             }
         }
+        // eprintln!("house: {:?}, tar: {:?}",input.hs[i],tar);
+        // eprintln!("{} {:?}",to_w[tar.0][tar.1],com[tar.0][tar.1]);
         let mut cur = tar;
         // たどり着くまで
         loop {
@@ -352,7 +355,7 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                     break;
                 }
                 let rem = (s_pred[cur.0][cur.1] - dam[cur.0][cur.1]).max(0);
-                let attempt = if rem < 100 {20} else {100};
+                let attempt = if rem < 100 {50} else {100};
                 let res = excavate_proc!(cur,attempt);
                 if res == 1 {
                     break;
@@ -388,7 +391,7 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         let mut que = VecDeque::new();
         for i in 0..input.w {
             to_w[input.ws[i].0][input.ws[i].1] = 0;
-            que.push_back(input.ws[i]);
+            if com[input.ws[i].0][input.ws[i].1] {que.push_back(input.ws[i]);}
         }
         while let Some(p) = que.pop_front() {
             for &cd in &ADJACENTS {
@@ -400,7 +403,7 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
         }
         for i in 0..input.n {
             for j in 0..input.n {
-                if to_w[i][j] == 0 {
+                if to_w[i][j] == 0 && com[i][j] {
                     que.push_back(Coordinate(i, j));
                 }
             }
