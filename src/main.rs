@@ -205,10 +205,10 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     const SEP: usize = 25;
     const SEPN: usize = 9;
     let get_idx = |x: usize| if x == input.n - 1 {SEPN - 1} else {x / SEP};
-    let mut dam = mat![0;input.n;input.n];
+    let from_idx = |x: usize| if x == SEPN - 1 {input.n - 1} else {x * SEP};
+    let mut dam: Vec<Vec<i32>> = mat![0;input.n;input.n];
     let mut com = mat![false;input.n;input.n];
     let mut cost_sum = 0;
-    let mut to_w = mat![1 << 30;input.n;input.n];
     macro_rules! excavate_proc {
         ($point: expr,$power: expr) => {{
             let res = excavate(stdin,$point,$power);
@@ -224,69 +224,196 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             res
         }};
     }
-    // for s in [300,500,700,1000,1200,1400,1500,1600,2000,3000,4000,5000] {
-    //     for i in (0..=input.n).step_by(SEP) {
-    //         for j in (0..=input.n).step_by(SEP) {
-    //             let i = i.min(input.n - 1);
-    //             let j = j.min(input.n - 1);
-    //             while !com[i][j] && dam[i][j] < s {
-    //                 let res = excavate(stdin, Coordinate(i, j), 20);
-    //                 if res == 1 {
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    // let s = 500;
     let mut uf = acl::Dsu::new(SEPN * SEPN);
-    for s in (300..5000).step_by(100) {
+    'outer: for s in (300..5000).step_by(100) {
         for i in (0..=input.n).step_by(SEP) {
             for j in (0..=input.n).step_by(SEP) {
+                let i = i.min(input.n - 1);
+                let j = j.min(input.n - 1);
                 if com[i][j] {
                     continue;
                 }
-                let i = i.min(input.n - 1);
-                let j = j.min(input.n - 1);
                 while dam[i][j] < s {
                     let res = excavate_proc!(Coordinate(i, j), 20);
                     if res == 1 {
                         break;
                     }
                 }
-                let p = Coordinate(get_idx(i),get_idx(j));
-                for &cd in &ADJACENTS8 {
-                    let np = p + cd;
-                    if np.in_map(SEPN) {
-                        uf.merge(p.0 * SEPN + p.1, np.0 * SEPN + np.1);
+                if com[i][j] {
+                    let p = Coordinate(get_idx(i),get_idx(j));
+                    for &cd in &ADJACENTS8 {
+                        let np = p + cd;
+                        if np.in_map(SEPN) && com[from_idx(np.0)][from_idx(np.1)] {
+                            uf.merge(p.0 * SEPN + p.1, np.0 * SEPN + np.1);
+                        }
                     }
                 }
             }
         }
+        for i in 0..input.h {
+            let mut ok = false;
+            let hx = input.hs[i].0 / SEP;
+            let hy = input.hs[i].1 / SEP;
+            'check: for j in 0..input.w {
+                let wx = input.ws[j].0 / SEP;
+                let wy = input.ws[j].1 / SEP;
+                for hp in [(hx,hy),(hx + 1,hy),(hx,hy + 1),(hx + 1,hy + 1)] {
+                    if !com[from_idx(hp.0)][from_idx(hp.1)] {
+                        continue;
+                    }
+                    for wp in [(wx,wy),(wx + 1,wy),(wx,wy + 1),(wx + 1,wy + 1)] {
+                        if !com[from_idx(wp.0)][from_idx(wp.1)] {
+                            continue;
+                        }
+                        if uf.same(hp.0 * SEPN + hp.1, wp.0 * SEPN + wp.1) {
+                            ok = true;
+                            break 'check;
+                        }
+                    }
+                }
+            }
+            if !ok {
+                continue 'outer;
+            }
+        }
+        eprintln!("s: {}",s);
+        break;
     }
-    // for i in (SEP / 2..input.n).step_by(SEP) {
-    //     for j in (SEP / 2..input.n).step_by(SEP) {
-    //         while !com[i][j] && dam[i][j] < s {
-    //             let res = excavate_proc!(Coordinate(i, j), 20);
-    //             if res == 1 {
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
-    // for i in 0..input.h {
-    //     let mut dist = mat![1 << 30;input.n;input.n];
-    //     let mut que = BinaryHeap::new();
-    //     que.push((Reverse(0),input.hs[i]));
-    //     dist[input.hs[i].0][input.hs[i].1] = 0;
-    //     while let Some((Reverse(d),p)) = que.pop() {
-    //         if dist[p.0][p.1] < d {continue;}
-    //         for &cd in &ADJACENTS {
-    //             let np = p + cd;
-    //             if np.in_map(input.n) && chmin!(dist[np.0][np.1],d + )
-    //         }
-    //     }
-    // }
+    
+    let mut to_w = mat![1 << 30;input.n;input.n];
+    let mut que = VecDeque::new();
+    for i in 0..input.w {
+        to_w[input.ws[i].0][input.ws[i].1] = 0;
+        que.push_back(input.ws[i]);
+    }
+    while let Some(p) = que.pop_front() {
+        for &cd in &ADJACENTS {
+            let np = p + cd;
+            if np.in_map(input.n) && chmin!(to_w[np.0][np.1],to_w[p.0][p.1] + 1) {
+                que.push_back(np);
+            }
+        }
+    }
+    for i in 0..input.h {
+        let mut s_pred = mat![!0;input.n;input.n];
+        // 近い四隅から値を持ってきて予測
+        for i in 0..input.n {
+            for j in 0..input.n {
+                let hx = i / SEP;
+                let hy = j / SEP;
+                let hxi = from_idx(hx);
+                let hyi = from_idx(hy);
+                let hx1i = from_idx(hx + 1);
+                let hy1i = from_idx(hy + 1);
+                let hxhy = if com[hxi][hyi] {dam[hxi][hyi]} else {5000};
+                let hxhy1 = if com[hxi][hy1i] {dam[hxi][hy1i]} else {5000};
+                let hx1hy = if com[hx1i][hyi] {dam[hx1i][hyi]} else {5000};
+                let hx1hy1 = if com[hx1i][hy1i] {dam[hx1i][hy1i]} else {5000};
+                let d0 = (hxhy * (hy1i - j) as i32 + hxhy1 * (j - hyi) as i32) / SEP as i32;
+                let d1 = (hx1hy * (hy1i - j) as i32 + hx1hy1 * (j - hyi) as i32) / SEP as i32;
+                let d2 = (d0 * (hx1i - i) as i32 + d1 * (i - hxi) as i32) / SEP as i32;
+                s_pred[i][j] = d2;
+            }
+        }
+        let mut dist = mat![1 << 30;input.n;input.n];
+        let mut from = mat![Coordinate(!0,!0);input.n;input.n];
+        let mut que = BinaryHeap::new();
+        dist[input.hs[i].0][input.hs[i].1] = 0;
+        que.push((Reverse(0),input.hs[i]));
+        while let Some((Reverse(d),p)) = que.pop() {
+            if dist[p.0][p.1] < d {continue;}
+            for &cd in &ADJACENTS8 {
+                let np = p + cd;
+                if np.in_map(input.n) && chmin!(dist[np.0][np.1],d + s_pred[np.0][np.1]) {
+                    que.push((Reverse(dist[np.0][np.1]),np));
+                    from[np.0][np.1] = p;
+                }
+            }
+        }
+        let mut tar = Coordinate(!0,!0);
+        // 予測距離 グリッドでの距離
+        let mut now = (1 << 30,1 << 30);
+        for i in 0..input.n {
+            for j in 0..input.n {
+                if to_w[i][j] != 0 {
+                    continue;
+                }
+                if chmin!(now,(dist[i][j],to_w[i][j])) {
+                    tar = Coordinate(i,j);
+                }
+            }
+        }
+        let mut cur = tar;
+        // たどり着くまで
+        loop {
+            // その場を掘る
+            loop {
+                if com[cur.0][cur.1] {
+                    break;
+                }
+                let rem = (s_pred[cur.0][cur.1] - dam[cur.0][cur.1]).max(0);
+                let attempt = if rem < 100 {20} else {100};
+                let res = excavate_proc!(cur,attempt);
+                if res == 1 {
+                    break;
+                }
+            }
+            if cur == input.hs[i] {
+                break;
+            }
+            let nx = from[cur.0][cur.1];
+            // 斜め移動なので先に壊す
+            if cur.0 != nx.0 && cur.1 != nx.1 {
+                let bp0 = Coordinate(cur.0,nx.1);
+                let bp1 = Coordinate(nx.0,cur.1);
+                let rem0 = s_pred[bp0.0][bp0.1] - dam[bp0.0][bp0.1];
+                let rem1 = s_pred[bp1.0][bp1.1] - dam[bp1.0][bp1.1];
+                let bp = if rem0 < rem1 {bp0} else {bp1};
+                loop {
+                    if com[bp.0][bp.1] {
+                        break;
+                    }
+                    let rem = (s_pred[bp.0][bp.1] - dam[bp.0][bp.1]).max(0);
+                    let attempt = if rem < 100 {20} else {100};
+                    let res = excavate_proc!(bp,attempt);
+                    if res == 1 {
+                        break;
+                    }
+                }
+            }
+            cur = from[cur.0][cur.1];
+        }
+        // 水場の更新
+        to_w = mat![1 << 30;input.n;input.n];
+        let mut que = VecDeque::new();
+        for i in 0..input.w {
+            to_w[input.ws[i].0][input.ws[i].1] = 0;
+            que.push_back(input.ws[i]);
+        }
+        while let Some(p) = que.pop_front() {
+            for &cd in &ADJACENTS {
+                let np = p + cd;
+                if np.in_map(input.n) && com[np.0][np.1] && chmin!(to_w[np.0][np.1],to_w[p.0][p.1]) {
+                    que.push_back(np);
+                }
+            }
+        }
+        for i in 0..input.n {
+            for j in 0..input.n {
+                if to_w[i][j] == 0 {
+                    que.push_back(Coordinate(i, j));
+                }
+            }
+        }
+        while let Some(p) = que.pop_front() {
+            for &cd in &ADJACENTS {
+                let np = p + cd;
+                if np.in_map(input.n) && chmin!(to_w[np.0][np.1],to_w[p.0][p.1] + 1) {
+                    que.push_back(np);
+                }
+            }
+        }
+    }
 }
 
 fn excavate(stdin: &mut LineSource<BufReader<StdinLock>>, point: Coordinate, power: i32) -> i32 {
