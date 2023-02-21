@@ -6,13 +6,13 @@ use std::io::{stdin, BufReader, StdinLock};
 
 use std::process::exit;
 
-use grid::ADJACENTS;
+use grid::{ADJACENTS,ADJACENTS8};
 
 fn main() {
     let stdin = stdin();
     let mut source = LineSource::new(BufReader::new(stdin.lock()));
     let input = Input::from_input(&mut source);
-    solve(&mut source, input);
+    solve2(&mut source, input);
 }
 
 fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
@@ -199,6 +199,96 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     }
 }
 
+fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
+    // 全体を何分割かしてそこの地層の強度を調べる
+    // SEPコのブロックで分割
+    const SEP: usize = 25;
+    const SEPN: usize = 9;
+    let get_idx = |x: usize| if x == input.n - 1 {SEPN - 1} else {x / SEP};
+    let mut dam = mat![0;input.n;input.n];
+    let mut com = mat![false;input.n;input.n];
+    let mut cost_sum = 0;
+    let mut to_w = mat![1 << 30;input.n;input.n];
+    macro_rules! excavate_proc {
+        ($point: expr,$power: expr) => {{
+            let res = excavate(stdin,$point,$power);
+            cost_sum += $power;
+            dam[$point.0][$point.1] += $power;
+            if res == 1 {
+                com[$point.0][$point.1] = true;
+            }
+            else if res == 2 {
+                eprintln!("Cost sum: {}",cost_sum);
+                exit(0);
+            }
+            res
+        }};
+    }
+    // for s in [300,500,700,1000,1200,1400,1500,1600,2000,3000,4000,5000] {
+    //     for i in (0..=input.n).step_by(SEP) {
+    //         for j in (0..=input.n).step_by(SEP) {
+    //             let i = i.min(input.n - 1);
+    //             let j = j.min(input.n - 1);
+    //             while !com[i][j] && dam[i][j] < s {
+    //                 let res = excavate(stdin, Coordinate(i, j), 20);
+    //                 if res == 1 {
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // let s = 500;
+    let mut uf = acl::Dsu::new(SEPN * SEPN);
+    for s in (300..5000).step_by(100) {
+        for i in (0..=input.n).step_by(SEP) {
+            for j in (0..=input.n).step_by(SEP) {
+                if com[i][j] {
+                    continue;
+                }
+                let i = i.min(input.n - 1);
+                let j = j.min(input.n - 1);
+                while dam[i][j] < s {
+                    let res = excavate_proc!(Coordinate(i, j), 20);
+                    if res == 1 {
+                        break;
+                    }
+                }
+                let p = Coordinate(get_idx(i),get_idx(j));
+                for &cd in &ADJACENTS8 {
+                    let np = p + cd;
+                    if np.in_map(SEPN) {
+                        uf.merge(p.0 * SEPN + p.1, np.0 * SEPN + np.1);
+                    }
+                }
+            }
+        }
+    }
+    // for i in (SEP / 2..input.n).step_by(SEP) {
+    //     for j in (SEP / 2..input.n).step_by(SEP) {
+    //         while !com[i][j] && dam[i][j] < s {
+    //             let res = excavate_proc!(Coordinate(i, j), 20);
+    //             if res == 1 {
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    // for i in 0..input.h {
+    //     let mut dist = mat![1 << 30;input.n;input.n];
+    //     let mut que = BinaryHeap::new();
+    //     que.push((Reverse(0),input.hs[i]));
+    //     dist[input.hs[i].0][input.hs[i].1] = 0;
+    //     while let Some((Reverse(d),p)) = que.pop() {
+    //         if dist[p.0][p.1] < d {continue;}
+    //         for &cd in &ADJACENTS {
+    //             let np = p + cd;
+    //             if np.in_map(input.n) && chmin!(dist[np.0][np.1],d + )
+    //         }
+    //     }
+    // }
+}
+
 fn excavate(stdin: &mut LineSource<BufReader<StdinLock>>, point: Coordinate, power: i32) -> i32 {
     println!("{} {} {}", point.0, point.1, power);
     input! {
@@ -280,6 +370,90 @@ pub mod grid {
         CoordinateDiff::new(0, 1),
         CoordinateDiff::new(1, 0),
     ];
+    pub const ADJACENTS8: [CoordinateDiff; 8] = [
+        CoordinateDiff::new(0, !0),
+        CoordinateDiff::new(!0, 0),
+        CoordinateDiff::new(0, 1),
+        CoordinateDiff::new(1, 0),
+        CoordinateDiff::new(!0, !0),
+        CoordinateDiff::new(!0, 1),
+        CoordinateDiff::new(1, !0),
+        CoordinateDiff::new(1, 1),
+    ];
+}
+
+pub mod acl {
+    pub struct Dsu {
+        n: usize,
+        // root node: -1 * component size
+        // otherwise: parent
+        parent_or_size: Vec<i32>,
+    }
+
+    impl Dsu {
+        pub fn new(size: usize) -> Self {
+            Self {
+                n: size,
+                parent_or_size: vec![-1; size],
+            }
+        }
+
+        pub fn merge(&mut self, a: usize, b: usize) -> usize {
+            assert!(a < self.n);
+            assert!(b < self.n);
+            let (mut x, mut y) = (self.leader(a), self.leader(b));
+            if x == y {
+                return x;
+            }
+            if -self.parent_or_size[x] < -self.parent_or_size[y] {
+                std::mem::swap(&mut x, &mut y);
+            }
+            self.parent_or_size[x] += self.parent_or_size[y];
+            self.parent_or_size[y] = x as i32;
+            x
+        }
+
+        pub fn same(&mut self, a: usize, b: usize) -> bool {
+            assert!(a < self.n);
+            assert!(b < self.n);
+            self.leader(a) == self.leader(b)
+        }
+
+        pub fn leader(&mut self, a: usize) -> usize {
+            assert!(a < self.n);
+            if self.parent_or_size[a] < 0 {
+                return a;
+            }
+            self.parent_or_size[a] = self.leader(self.parent_or_size[a] as usize) as i32;
+            self.parent_or_size[a] as usize
+        }
+
+        pub fn size(&mut self, a: usize) -> usize {
+            assert!(a < self.n);
+            let x = self.leader(a);
+            -self.parent_or_size[x] as usize
+        }
+
+        pub fn groups(&mut self) -> Vec<Vec<usize>> {
+            let mut leader_buf = vec![0; self.n];
+            let mut group_size = vec![0; self.n];
+            for i in 0..self.n {
+                leader_buf[i] = self.leader(i);
+                group_size[leader_buf[i]] += 1;
+            }
+            let mut result = vec![Vec::new(); self.n];
+            for i in 0..self.n {
+                result[i].reserve(group_size[i]);
+            }
+            for i in 0..self.n {
+                result[leader_buf[i]].push(i);
+            }
+            result
+                .into_iter()
+                .filter(|x| !x.is_empty())
+                .collect::<Vec<Vec<usize>>>()
+        }
+    }
 }
 
 #[macro_use]
