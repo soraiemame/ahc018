@@ -354,16 +354,11 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             if dist[p.0][p.1] < d {
                 continue;
             }
-            for &cd in &ADJACENTS8 {
+            for &cd in &ADJACENTS {
                 let np = p + cd;
                 if np.in_map(input.n) {
                     let nx = d
-                        + s_pred[np.0][np.1]
-                        + if cd.0 == 0 || cd.1 == 0 {
-                            input.c
-                        } else {
-                            2 * input.c
-                        };
+                        + s_pred[np.0][np.1] + input.c;
                     if chmin!(dist[np.0][np.1], nx) {
                         que.push((Reverse(dist[np.0][np.1]), np));
                         from[np.0][np.1] = p;
@@ -401,26 +396,6 @@ fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             }
             if cur == input.hs[i] {
                 break;
-            }
-            let nx = from[cur.0][cur.1];
-            // 斜め移動なので先に壊す
-            if cur.0 != nx.0 && cur.1 != nx.1 {
-                let bp0 = Coordinate(cur.0, nx.1);
-                let bp1 = Coordinate(nx.0, cur.1);
-                let rem0 = s_pred[bp0.0][bp0.1] - dam[bp0.0][bp0.1];
-                let rem1 = s_pred[bp1.0][bp1.1] - dam[bp1.0][bp1.1];
-                let bp = if rem0 < rem1 { bp0 } else { bp1 };
-                loop {
-                    if com[bp.0][bp.1] {
-                        break;
-                    }
-                    let rem = (s_pred[bp.0][bp.1] - dam[bp.0][bp.1]).max(0);
-                    let attempt = if rem < 100 { 20 } else { 100 };
-                    let res = excavate_proc!(bp, attempt);
-                    if res == 1 {
-                        break;
-                    }
-                }
             }
             cur = from[cur.0][cur.1];
         }
