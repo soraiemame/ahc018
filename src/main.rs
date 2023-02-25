@@ -16,7 +16,7 @@ fn main() {
 }
 
 // 最初に全体を掘削するのでは無く、家からのパスを見つけるために毎回掘削の範囲を広げ、強度を上げていく
-fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
+fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     // 全体を何分割かしてそこの地層の強度を調べる
     // SEPコのブロックで分割
     const SEP: usize = 20;
