@@ -15,12 +15,17 @@ fn main() {
     solve(&mut source, input);
 }
 
-fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
+// 最初に全体を掘削するのでは無く、家からのパスを見つけるために毎回掘削の範囲を広げ、強度を上げていく
+fn solve2(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     // 全体を何分割かしてそこの地層の強度を調べる
     // SEPコのブロックで分割
     const SEP: usize = 20;
     const SEPN: usize = 11;
-    const HOUSE_EXCAVATION: i32 = 100;
+    const UNKNOWN: i32 = 10000;
+    // 距離が1伸びた時の差
+    const DIFF1: i32 = 100;
+    // 毎回の掘削でどれだけ掘るか
+    const EX_STEP: i32 = 100;
     let get_idx = |x: usize| if x == input.n - 1 { SEPN - 1 } else { x / SEP };
     let from_idx = |x: usize| if x == SEPN - 1 { input.n - 1 } else { x * SEP };
     let mut dam: Vec<Vec<i32>> = mat![0;input.n;input.n];
@@ -40,64 +45,71 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             res
         }};
     }
-    let mut st = 0;
-    let mut uf = acl::Dsu::new(SEPN * SEPN);
-    'outer: for s in (300..5000).step_by(100) {
-        for i in (0..=input.n).step_by(SEP) {
-            for j in (0..=input.n).step_by(SEP) {
-                let i = i.min(input.n - 1);
-                let j = j.min(input.n - 1);
-                if com[i][j] {
-                    continue;
-                }
-                while dam[i][j] < s {
-                    let attempt = HOUSE_EXCAVATION;
-                    let res = excavate_proc!(Coordinate(i, j), attempt);
-                    if res == 1 {
-                        break;
-                    }
-                }
-                if com[i][j] {
-                    let p = Coordinate(get_idx(i), get_idx(j));
-                    for &cd in &ADJACENTS8 {
-                        let np = p + cd;
-                        if np.in_map(SEPN) && com[from_idx(np.0)][from_idx(np.1)] {
-                            uf.merge(p.0 * SEPN + p.1, np.0 * SEPN + np.1);
-                        }
-                    }
-                }
-            }
-        }
-        for i in 0..input.h {
-            let mut ok = false;
-            let hx = input.hs[i].0 / SEP;
-            let hy = input.hs[i].1 / SEP;
-            'check: for j in 0..input.w {
-                let wx = input.ws[j].0 / SEP;
-                let wy = input.ws[j].1 / SEP;
-                for hp in &[(hx, hy), (hx + 1, hy), (hx, hy + 1), (hx + 1, hy + 1)] {
-                    if !com[from_idx(hp.0)][from_idx(hp.1)] {
+    let mut uf = acl::Dsu::new(SEPN * SEPN + 1 + input.h);
+    const WNODE: usize = SEPN * SEPN;
+    const HNODE_OFFSET: usize = SEPN * SEPN + 1;
+    for i in 0..input.w {
+        let hx = input.ws[i].0 / SEP;
+        let hy = input.ws[i].1 / SEP;
+        uf.merge(WNODE, hx * SEPN + hy);
+        uf.merge(WNODE, (hx + 1) * SEPN + hy);
+        uf.merge(WNODE, hx * SEPN + (hy + 1));
+        uf.merge(WNODE, (hx + 1) * SEPN + (hy + 1));
+    }
+    for i in 0..input.h {
+        let hx = input.hs[i].0 / SEP;
+        let hy = input.hs[i].1 / SEP;
+        uf.merge(HNODE_OFFSET + i, hx * SEPN + hy);
+        uf.merge(HNODE_OFFSET + i, (hx + 1) * SEPN + hy);
+        uf.merge(HNODE_OFFSET + i, hx * SEPN + (hy + 1));
+        uf.merge(HNODE_OFFSET + i, (hx + 1) * SEPN + (hy + 1));
+    }
+    // eprintln!("{:?}",uf.groups());
+    // まず最初は300で掘削、その後範囲を一つ広げ、300で掘削し、そのほかを300さらに掘り進める
+    // 距離はマンハッタン
+    for i in 0..input.h {
+        let ox = input.hs[i].0 / SEP;
+        let oy = input.hs[i].1 / SEP;
+        let mut lx = ox;
+        let mut ly = oy;
+        let mut rx = ox;
+        let mut ry = oy;
+        let mut s = 0;
+        while !uf.same(WNODE, HNODE_OFFSET + i) {
+            s += 1;
+            for x in lx..=rx {
+                for y in ly..=ry {
+                    let hxi = from_idx(x);
+                    let hyi = from_idx(y);
+                    if com[hxi][hyi] {
                         continue;
                     }
-                    for wp in &[(wx, wy), (wx + 1, wy), (wx, wy + 1), (wx + 1, wy + 1)] {
-                        if !com[from_idx(wp.0)][from_idx(wp.1)] {
-                            continue;
+                    let d = abs_diff(x, ox).max(abs_diff(y, oy));
+                    let tar = (s - d) as i32 * DIFF1;
+                    while dam[hxi][hyi] < tar {
+                        let res = excavate_proc!(Coordinate(hxi, hyi), EX_STEP);
+                        if res == 1 {
+                            break;
                         }
-                        if uf.same(hp.0 * SEPN + hp.1, wp.0 * SEPN + wp.1) {
-                            ok = true;
-                            break 'check;
+                    }
+                    if !com[hxi][hyi] {
+                        continue;
+                    }
+                    for &cd in &ADJACENTS8 {
+                        let nx = Coordinate(x, y) + cd;
+                        if nx.in_map(SEPN) && com[from_idx(nx.0)][from_idx(nx.1)] {
+                            uf.merge(x * SEPN + y, nx.0 * SEPN + nx.1);
                         }
                     }
                 }
             }
-            if !ok {
-                continue 'outer;
-            }
+            lx = if lx == 0 { 0 } else { lx - 1 };
+            ly = if ly == 0 { 0 } else { ly - 1 };
+            rx = if rx == SEPN - 1 { SEPN - 1 } else { rx + 1 };
+            ry = if ry == SEPN - 1 { SEPN - 1 } else { ry + 1 };
         }
-        st = s;
-        eprintln!("s: {}", s);
-        break;
     }
+    eprintln!("Mining part: {}", cost_sum);
 
     let mut to_w = mat![1 << 30;input.n;input.n];
     let mut que = VecDeque::new();
@@ -125,13 +137,25 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             let hyi = from_idx(hy);
             let hx1i = from_idx(hx + 1);
             let hy1i = from_idx(hy + 1);
-            let hxhy = if com[hxi][hyi] { dam[hxi][hyi] } else { 5000 };
-            let hxhy1 = if com[hxi][hy1i] { dam[hxi][hy1i] } else { 5000 };
-            let hx1hy = if com[hx1i][hyi] { dam[hx1i][hyi] } else { 5000 };
+            let hxhy = if com[hxi][hyi] {
+                dam[hxi][hyi]
+            } else {
+                UNKNOWN
+            };
+            let hxhy1 = if com[hxi][hy1i] {
+                dam[hxi][hy1i]
+            } else {
+                UNKNOWN
+            };
+            let hx1hy = if com[hx1i][hyi] {
+                dam[hx1i][hyi]
+            } else {
+                UNKNOWN
+            };
             let hx1hy1 = if com[hx1i][hy1i] {
                 dam[hx1i][hy1i]
             } else {
-                5000
+                UNKNOWN
             };
             let d0 = (hxhy * (hy1i - j) as i32 + hxhy1 * (j - hyi) as i32) / SEP as i32;
             let d1 = (hx1hy * (hy1i - j) as i32 + hx1hy1 * (j - hyi) as i32) / SEP as i32;
@@ -139,101 +163,71 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             s_pred[i][j] = d2;
         }
     }
+    visualize(&input, &s_pred);
+
     for i in 0..input.h {
-        loop {
-            let mut dist = mat![1 << 30;input.n;input.n];
-            let mut from = mat![Coordinate(!0,!0);input.n;input.n];
-            let mut que = BinaryHeap::new();
-            dist[input.hs[i].0][input.hs[i].1] = 0;
-            que.push((Reverse(0), input.hs[i]));
-            while let Some((Reverse(d), p)) = que.pop() {
-                if dist[p.0][p.1] < d {
+        let mut dist = mat![1 << 30;input.n;input.n];
+        let mut from = mat![Coordinate(!0,!0);input.n;input.n];
+        let mut que = BinaryHeap::new();
+        dist[input.hs[i].0][input.hs[i].1] = 0;
+        que.push((Reverse(0), input.hs[i]));
+        while let Some((Reverse(d), p)) = que.pop() {
+            if dist[p.0][p.1] < d {
+                continue;
+            }
+            for &cd in &ADJACENTS {
+                let np = p + cd;
+                if np.in_map(input.n) {
+                    let nx =
+                        d + if com[np.0][np.1] {
+                            0
+                        } else {
+                            s_pred[np.0][np.1]
+                        } + input.c;
+                    if chmin!(dist[np.0][np.1], nx) {
+                        que.push((Reverse(dist[np.0][np.1]), np));
+                        from[np.0][np.1] = p;
+                    }
+                }
+            }
+        }
+        let mut tar = Coordinate(!0, !0);
+        // 予測距離 グリッドでの距離
+        let mut now = (1 << 30, 1 << 30);
+        for i in 0..input.n {
+            for j in 0..input.n {
+                if to_w[i][j] != 0 {
                     continue;
                 }
-                for &cd in &ADJACENTS {
-                    let np = p + cd;
-                    if np.in_map(input.n) {
-                        let nx = d + if com[np.0][np.1] {0} else {s_pred[np.0][np.1]} + input.c;
-                        if chmin!(dist[np.0][np.1], nx) {
-                            que.push((Reverse(dist[np.0][np.1]), np));
-                            from[np.0][np.1] = p;
-                        }
-                    }
+                if chmin!(now, (dist[i][j], to_w[i][j])) {
+                    tar = Coordinate(i, j);
                 }
             }
-            let mut tar = Coordinate(!0, !0);
-            // 予測距離 グリッドでの距離
-            let mut now = (1 << 30, 1 << 30);
-            for i in 0..input.n {
-                for j in 0..input.n {
-                    if to_w[i][j] != 0 {
-                        continue;
-                    }
-                    if chmin!(now, (dist[i][j], to_w[i][j])) {
-                        tar = Coordinate(i, j);
-                    }
-                }
+        }
+        let mut cur = tar;
+        let mut path = vec![];
+        // たどり着くまで
+        loop {
+            path.push(cur);
+            if cur == input.hs[i] {
+                break;
             }
-            let mut cur = tar;
-            let mut path = vec![];
-            // たどり着くまで
+            cur = from[cur.0][cur.1];
+        }
+        path.reverse();
+        for p in path {
+            if com[p.0][p.1] {
+                continue;
+            }
+            // その場を掘る
             loop {
-                path.push(cur);
-                if cur == input.hs[i] {
+                let rem = s_pred[p.0][p.1] - dam[p.0][p.1];
+                let attempt = if rem < 100 { 50 } else { 100 };
+                let res = excavate_proc!(p, attempt);
+                if res == 1 {
                     break;
                 }
-                cur = from[cur.0][cur.1];
             }
-            path.reverse();
-            let mut retry = false;
-            'path_dig: for p in path {
-                if com[p.0][p.1] {
-                    continue;
-                }
-                // その場を掘る
-                loop {
-                    let rem = s_pred[p.0][p.1] - dam[p.0][p.1];
-                    // 思ったよりも硬いので細かい調査
-                    if s_pred[p.0][p.1] > st && s_pred[p.0][p.1] < 1000 && rem < -100 {
-                        let cur_dam = dam[p.0][p.1];
-                        let px = p.0 / SEP;
-                        let py = p.1 / SEP;
-                        let px1 = px + 1;
-                        let py1 = py + 1;
-                        let mx = (from_idx(px) + from_idx(px1)) / 2;
-                        let my = (from_idx(py) + from_idx(py1)) / 2;
-                        if !com[mx][my] {
-                            // 予測値でとりあえず掘ってみる
-                            let attempt = s_pred[mx][my] - cur_dam;
-                            let rem = if attempt > 20 {
-                                let res = excavate_proc!(Coordinate(mx, my),attempt);
-                                if res != 1 {
-                                    st - s_pred[mx][my]
-                                }
-                                else {0}
-                            }
-                            else {0};
-                            if rem > 0 {
-                                excavate_proc!(Coordinate(mx, my),rem);
-                            }
-                            let d = if com[mx][my] {dam[mx][my]} else{5000};
-                            for i in from_idx(px)..=from_idx(px + 1) {
-                                for j in from_idx(py)..=from_idx(py + 1) {
-                                    s_pred[i][j] = (s_pred[i][j] * 4 + d) / 5;
-                                }
-                            }
-                            retry = true;
-                            break 'path_dig;
-                        }
-                    }
-                    let attempt = if rem < 100 { 50 } else { 100 };
-                    let res = excavate_proc!(p, attempt);
-                    if res == 1 {
-                        break;
-                    }
-                }
-            }
-            if !retry {break;}
         }
         // 水場の更新
         to_w = mat![1 << 30;input.n;input.n];
@@ -284,6 +278,20 @@ fn excavate(stdin: &mut LineSource<BufReader<StdinLock>>, point: Coordinate, pow
     res
 }
 
+#[cfg(feature = "visualize")]
+fn visualize(input: &Input, s_pred: &Vec<Vec<i32>>) {
+    eprintln!("start visualizing");
+    for i in 0..input.n {
+        for j in 0..input.n {
+            eprint!("{}", s_pred[i][j]);
+            eprint!("{}", if j == input.n - 1 { "\n" } else { " " });
+        }
+    }
+    eprintln!("end visualizing");
+}
+#[cfg(not(feature = "visualize"))]
+fn visualize(_input: &Input, _s_pred: &Vec<Vec<i32>>) {}
+
 struct Input {
     n: usize,
     w: usize,
@@ -307,6 +315,14 @@ impl Input {
             .map(|x| Coordinate::new(x.0, x.1))
             .collect::<Vec<_>>();
         Self { n, w, h, c, ws, hs }
+    }
+}
+
+fn abs_diff(a: usize, b: usize) -> usize {
+    if a < b {
+        b - a
+    } else {
+        a - b
     }
 }
 

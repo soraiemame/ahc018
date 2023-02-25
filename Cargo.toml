@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+visualize = []
+
 [dependencies]
 proconio = { version = "=0.3.6", features = ["derive"] }
 noise = "0.8.2"
