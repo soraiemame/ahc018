@@ -1,7 +1,12 @@
-name: run-code
-on: [push]
+name: opt-params
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        required: true
+        default: "600"
 jobs:
-  run-code:
+  opt-params:
     runs-on: windows-2019
     steps:
       - name: Setup | Checkout
@@ -18,5 +23,13 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.8'
+      - name: Setup | Optuna
+        run: python -m pip install optuna
       - name: run
-        run: python run.py
+        run: |
+          python opt.py ${{ github.event.inputs.timeout }}
+          git config user.name  "soraiemame"
+          git config user.email "funasou46@yahoo.co.jp"
+          git add .
+          git commit -m "opt from github actions"
+          git push
