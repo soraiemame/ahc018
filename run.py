@@ -11,7 +11,7 @@ logger.propagate = False
 
 
 def main():
-    TESTCASES = 1000
+    TESTCASES = 3000
     cnt = 0
     for i in range(TESTCASES):
         infile = f".\\tools\\in\\{i:04d}.txt"

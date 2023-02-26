@@ -25,23 +25,23 @@ jobs:
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
-      # - name: Setup | Rust
-      #   uses: ATiltedTree/setup-rust@v1.0.5
-      #   with:
-      #     rust-version: stable
-      # - name: Build main.rs
-      #   run: cargo build --release
-      # - name: Generate Testcases
-      #   run: cd tools && .\gen.exe seeds.txt
+      - name: Setup | Rust
+        uses: ATiltedTree/setup-rust@v1.0.5
+        with:
+          rust-version: stable
+      - name: Build main.rs
+        run: cargo build --release
+      - name: Generate Testcases
+        run: cd tools && .\gen.exe seeds.txt
       - name: Setup | Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.8'
       - name: run
         run: |
-          date > generated.txt
+          python opt.py 600
           git config user.name  "soraiemame"
           git config user.email "funasou46@yahoo.co.jp"
           git add .
-          git commit -m "generated"
+          git commit -m "opt from github actions"
           git push
