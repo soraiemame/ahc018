@@ -10,4 +10,3 @@ visualize = []
 
 [dependencies]
 proconio = { version = "=0.3.6", features = ["derive"] }
-noise = "0.8.2"
