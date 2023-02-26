@@ -1,5 +1,6 @@
 name: run-code
 on: [push]
+permissions: read-all|write-all
 jobs:
   run-code:
     runs-on: windows-2019
