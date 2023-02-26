@@ -5,29 +5,23 @@ use std::collections::{BinaryHeap, VecDeque};
 use std::io::{stdin, BufReader, StdinLock};
 
 use std::process::exit;
+use std::env;
 
 use grid::{ADJACENTS, ADJACENTS8};
 
 fn main() {
+    let args = env::args().skip(1).collect::<Vec<_>>();
+    let hp = HyperParameter::from_args(args);
     let stdin = stdin();
     let mut source = LineSource::new(BufReader::new(stdin.lock()));
     let input = Input::from_input(&mut source);
-    solve(&mut source, input);
+    solve(&mut source, input, hp);
 }
 
 // 最初に全体を掘削するのでは無く、家からのパスを見つけるために毎回掘削の範囲を広げ、強度を上げていく
-fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
+fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input, hp: HyperParameter) {
     // 全体を何分割かしてそこの地層の強度を調べる
-    // SEPコのブロックで分割
-    const SEP: usize = 20;
-    const SEPN: usize = 11;
-    const UNKNOWN: i32 = 10000;
-    // 距離が1伸びた時の差
-    const DIFF1: i32 = 100;
-    // 毎回の掘削でどれだけ掘るか
-    const EX_STEP: i32 = 100;
-    let get_idx = |x: usize| if x == input.n - 1 { SEPN - 1 } else { x / SEP };
-    let from_idx = |x: usize| if x == SEPN - 1 { input.n - 1 } else { x * SEP };
+    let from_idx = |x: usize| if x == hp.SEPN - 1 { input.n - 1 } else { x * hp.SEP };
     let mut dam: Vec<Vec<i32>> = mat![0;input.n;input.n];
     let mut com = mat![false;input.n;input.n];
     let mut cost_sum = 0;
@@ -45,31 +39,34 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             res
         }};
     }
-    let mut uf = acl::Dsu::new(SEPN * SEPN + 1 + input.h);
-    const WNODE: usize = SEPN * SEPN;
-    const HNODE_OFFSET: usize = SEPN * SEPN + 1;
+    let mut uf = acl::Dsu::new(hp.SEPN * hp.SEPN + 1 + input.h);
+
+    #[allow(non_snake_case)]
+    let WNODE: usize = hp.SEPN * hp.SEPN;
+    #[allow(non_snake_case)]
+    let HNODE_OFFSET: usize = hp.SEPN * hp.SEPN + 1;
+
     for i in 0..input.w {
-        let hx = input.ws[i].0 / SEP;
-        let hy = input.ws[i].1 / SEP;
-        uf.merge(WNODE, hx * SEPN + hy);
-        uf.merge(WNODE, (hx + 1) * SEPN + hy);
-        uf.merge(WNODE, hx * SEPN + (hy + 1));
-        uf.merge(WNODE, (hx + 1) * SEPN + (hy + 1));
+        let hx = input.ws[i].0 / hp.SEP;
+        let hy = input.ws[i].1 / hp.SEP;
+        uf.merge(WNODE, hx * hp.SEPN + hy);
+        uf.merge(WNODE, (hx + 1) * hp.SEPN + hy);
+        uf.merge(WNODE, hx * hp.SEPN + (hy + 1));
+        uf.merge(WNODE, (hx + 1) * hp.SEPN + (hy + 1));
     }
     for i in 0..input.h {
-        let hx = input.hs[i].0 / SEP;
-        let hy = input.hs[i].1 / SEP;
-        uf.merge(HNODE_OFFSET + i, hx * SEPN + hy);
-        uf.merge(HNODE_OFFSET + i, (hx + 1) * SEPN + hy);
-        uf.merge(HNODE_OFFSET + i, hx * SEPN + (hy + 1));
-        uf.merge(HNODE_OFFSET + i, (hx + 1) * SEPN + (hy + 1));
+        let hx = input.hs[i].0 / hp.SEP;
+        let hy = input.hs[i].1 / hp.SEP;
+        uf.merge(HNODE_OFFSET + i, hx * hp.SEPN + hy);
+        uf.merge(HNODE_OFFSET + i, (hx + 1) * hp.SEPN + hy);
+        uf.merge(HNODE_OFFSET + i, hx * hp.SEPN + (hy + 1));
+        uf.merge(HNODE_OFFSET + i, (hx + 1) * hp.SEPN + (hy + 1));
     }
-    // eprintln!("{:?}",uf.groups());
     // まず最初は300で掘削、その後範囲を一つ広げ、300で掘削し、そのほかを300さらに掘り進める
     // 距離はマンハッタン
     for i in 0..input.h {
-        let ox = input.hs[i].0 / SEP;
-        let oy = input.hs[i].1 / SEP;
+        let ox = input.hs[i].0 / hp.SEP;
+        let oy = input.hs[i].1 / hp.SEP;
         let mut lx = ox;
         let mut ly = oy;
         let mut rx = ox;
@@ -85,9 +82,9 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                         continue;
                     }
                     let d = abs_diff(x, ox).max(abs_diff(y, oy));
-                    let tar = (s - d) as i32 * DIFF1;
+                    let tar = (s - d) as i32 * hp.DIFF1;
                     while dam[hxi][hyi] < tar {
-                        let res = excavate_proc!(Coordinate(hxi, hyi), EX_STEP);
+                        let res = excavate_proc!(Coordinate(hxi, hyi), hp.EX_STEP);
                         if res == 1 {
                             break;
                         }
@@ -97,16 +94,16 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
                     }
                     for &cd in &ADJACENTS8 {
                         let nx = Coordinate(x, y) + cd;
-                        if nx.in_map(SEPN) && com[from_idx(nx.0)][from_idx(nx.1)] {
-                            uf.merge(x * SEPN + y, nx.0 * SEPN + nx.1);
+                        if nx.in_map(hp.SEPN) && com[from_idx(nx.0)][from_idx(nx.1)] {
+                            uf.merge(x * hp.SEPN + y, nx.0 * hp.SEPN + nx.1);
                         }
                     }
                 }
             }
             lx = if lx == 0 { 0 } else { lx - 1 };
             ly = if ly == 0 { 0 } else { ly - 1 };
-            rx = if rx == SEPN - 1 { SEPN - 1 } else { rx + 1 };
-            ry = if ry == SEPN - 1 { SEPN - 1 } else { ry + 1 };
+            rx = if rx == hp.SEPN - 1 { hp.SEPN - 1 } else { rx + 1 };
+            ry = if ry == hp.SEPN - 1 { hp.SEPN - 1 } else { ry + 1 };
         }
     }
     eprintln!("Mining part: {}", cost_sum);
@@ -131,8 +128,8 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
     // 近い四隅から値を持ってきて予測
     for i in 0..input.n {
         for j in 0..input.n {
-            let hx = i / SEP;
-            let hy = j / SEP;
+            let hx = i / hp.SEP;
+            let hy = j / hp.SEP;
             let hxi = from_idx(hx);
             let hyi = from_idx(hy);
             let hx1i = from_idx(hx + 1);
@@ -140,26 +137,26 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             let hxhy = if com[hxi][hyi] {
                 dam[hxi][hyi]
             } else {
-                UNKNOWN
+                hp.UNKNOWN
             };
             let hxhy1 = if com[hxi][hy1i] {
                 dam[hxi][hy1i]
             } else {
-                UNKNOWN
+                hp.UNKNOWN
             };
             let hx1hy = if com[hx1i][hyi] {
                 dam[hx1i][hyi]
             } else {
-                UNKNOWN
+                hp.UNKNOWN
             };
             let hx1hy1 = if com[hx1i][hy1i] {
                 dam[hx1i][hy1i]
             } else {
-                UNKNOWN
+                hp.UNKNOWN
             };
-            let d0 = (hxhy * (hy1i - j) as i32 + hxhy1 * (j - hyi) as i32) / SEP as i32;
-            let d1 = (hx1hy * (hy1i - j) as i32 + hx1hy1 * (j - hyi) as i32) / SEP as i32;
-            let d2 = (d0 * (hx1i - i) as i32 + d1 * (i - hxi) as i32) / SEP as i32;
+            let d0 = (hxhy * (hy1i - j) as i32 + hxhy1 * (j - hyi) as i32) / hp.SEP as i32;
+            let d1 = (hx1hy * (hy1i - j) as i32 + hx1hy1 * (j - hyi) as i32) / hp.SEP as i32;
+            let d2 = (d0 * (hx1i - i) as i32 + d1 * (i - hxi) as i32) / hp.SEP as i32;
             s_pred[i][j] = d2;
         }
     }
@@ -222,7 +219,7 @@ fn solve(stdin: &mut LineSource<BufReader<StdinLock>>, input: Input) {
             // その場を掘る
             loop {
                 let rem = s_pred[p.0][p.1] - dam[p.0][p.1];
-                let attempt = if rem < 100 { 50 } else { 100 };
+                let attempt = if rem < hp.PRED_BORDER { hp.LOW_DAMAGE } else { hp.HIGH_DAMAGE };
                 let res = excavate_proc!(p, attempt);
                 if res == 1 {
                     break;
@@ -315,6 +312,63 @@ impl Input {
             .map(|x| Coordinate::new(x.0, x.1))
             .collect::<Vec<_>>();
         Self { n, w, h, c, ws, hs }
+    }
+}
+
+#[allow(non_snake_case)]
+struct HyperParameter {
+    // SEPコのブロックで分割
+    SEP: usize,
+    SEPN: usize,
+    UNKNOWN: i32,
+    // 距離が1伸びた時の差
+    DIFF1: i32,
+    // 毎回の掘削でどれだけ掘るか
+    EX_STEP: i32,
+    // 予測値のボーダー
+    PRED_BORDER: i32,
+    // それ未満だったら
+    LOW_DAMAGE: i32,
+    // それ以上だったら
+    HIGH_DAMAGE: i32,
+}
+
+impl HyperParameter {
+    fn from_args(args: Vec<String>) -> Self {
+        let l = args.len();
+        if l == 0 {
+            Self {
+                SEP: 20,
+                SEPN: 11,
+                UNKNOWN: 5507,
+                DIFF1: 119,
+                EX_STEP: 78,
+                PRED_BORDER: 631,
+                LOW_DAMAGE: 57,
+                HIGH_DAMAGE: 155,
+            }
+        }
+        else {
+            assert_eq!(l,7);
+            let sep = args[0].parse::<usize>().unwrap();
+            let sepn = (200 + sep - 1) / sep + 1;
+            let unknown = args[1].parse::<i32>().unwrap();
+            let diff1 = args[2].parse::<i32>().unwrap();
+            let ex_step = args[3].parse::<i32>().unwrap();
+            let pred_border = args[4].parse::<i32>().unwrap();;
+            let low_damage = args[5].parse::<i32>().unwrap();;
+            let high_damage = args[6].parse::<i32>().unwrap();;
+            Self {
+                SEP: sep,
+                SEPN: sepn,
+                UNKNOWN: unknown,
+                DIFF1: diff1,
+                EX_STEP: ex_step,
+                PRED_BORDER: pred_border,
+                LOW_DAMAGE: low_damage,
+                HIGH_DAMAGE: high_damage
+            }
+        }
     }
 }
 

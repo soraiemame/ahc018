@@ -10,13 +10,40 @@ jobs:
         uses: ATiltedTree/setup-rust@v1.0.5
         with:
           rust-version: stable
-      - name: Setup | Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.8'
       - name: Build main.rs
         run: cargo build --release
       - name: Generate Testcases
         run: cd tools && .\gen.exe seeds.txt
+      - name: Setup | Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
       - name: run
         run: python run.py
+  opt-params:
+    runs-on: windows-2019
+    steps:
+      # - name: Setup | Checkout
+      #   uses: actions/checkout@v3
+      # - name: Setup | Rust
+      #   uses: ATiltedTree/setup-rust@v1.0.5
+      #   with:
+      #     rust-version: stable
+      # - name: Build main.rs
+      #   run: cargo build --release
+      # - name: Generate Testcases
+      #   run: cd tools && .\gen.exe seeds.txt
+      - name: Setup | Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+      - name: run
+        run: |
+          date > generated.txt
+          git config user.name  "thaim"
+          git config user.email "thaim@example.com"
+          git add .
+          git commit -m "generated"
+          git push
+
+
